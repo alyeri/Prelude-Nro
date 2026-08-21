@@ -514,7 +514,7 @@ static const char *const NEXTENDO_STALE_FILES[] = {
     "sdmc:/atmosphere/contents/0100000000000803/romfs/nro/netfront/openssl_peer/cacerts.pem",
     // Patch navigateur d'un build-id qui n'est plus cible.
     "sdmc:/atmosphere/nro_patches/disable_browser_ca_verification/C338171E72636A2D77418E02F45E75D9F3090B.ips",
-    // Anciens patches certificat Splatoon 3, remplaces par le scanner runtime.
+    // Legacy Splatoon 3 certificate patches, replaced by the runtime scanner.
     "sdmc:/atmosphere/exefs_patches/s3certbypass/6830B3A12406CB4716FEC5ADDC35D3E2DC92D212000000000000000000000000.ips",
     "sdmc:/atmosphere/exefs_patches/s3certbypass/726D2B882DD9EF10F4A9D73EED088740630FB6C8000000000000000000000000.ips",
 };

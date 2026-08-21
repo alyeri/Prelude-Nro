@@ -378,14 +378,15 @@
 //           L'updater ecrit desormais dans prelude_trace.txt ce qu'il a fait (60 a 64) :
 //           il n'avait AUCUNE trace, et ce diagnostic-ci a du etre deduit au lieu d'etre
 //           lu. La prochaine fois, le fichier de l'utilisateur repondra tout seul.
-// build 58 : v3.3.6. Le bypass certificat de Splatoon 3 n'est plus un IPS lie au
-//           build-id. Un plugin Skyline cherche une signature AArch64 unique dans
-//           main.text, valide que la cible est bien LDRB W10, ecrit MOV W10,#1 et
-//           relit l'instruction. Toute ambiguite echoue fermee et est journalisee dans
-//           atmosphere/contents/0100C2500FC20000/s3certbypass.log. Le loader Skyline
-//           est specifique a Splatoon 3 : il journalise sur SD sans initialiser ni
-//           hooker nn::socket. Les deux anciens IPS cert sont purges ; s3peername et
-//           GetRelaySignatureKey restent inchanges. Aucun overclocker n'est embarque.
+// build 58 : v3.3.6. The Splatoon 3 certificate bypass is no longer an IPS tied
+//           to a build ID. A Skyline plugin scans main.text for one unique AArch64
+//           signature, verifies that the target is LDRB W10, writes MOV W10,#1,
+//           and reads the instruction back. Ambiguous matches fail closed and are
+//           logged to atmosphere/contents/0100C2500FC20000/s3certbypass.log. The
+//           Splatoon 3-specific Skyline loader logs to SD without initializing or
+//           hooking nn::socket. The two legacy certificate IPS files are purged;
+//           s3peername and GetRelaySignatureKey remain unchanged. No overclocker
+//           is included.
 #define NEXTENDO_BUILD 58
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).

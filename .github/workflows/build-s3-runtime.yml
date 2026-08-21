@@ -60,6 +60,9 @@ jobs:
       - name: Install pinned cargo-skyline
         run: cargo install cargo-skyline --git https://github.com/jam1garner/cargo-skyline.git --rev "$CARGO_SKYLINE_COMMIT" --locked
 
+      - name: Install Skyline Rust toolchain
+        run: cargo skyline update-std
+
       - name: Build certificate plugin
         working-directory: plugins/s3certbypass
         run: cargo skyline build --release

@@ -67,7 +67,7 @@ unsafe fn locate_patch_target() -> Result<usize, &'static str> {
 fn apply_certificate_patch() -> Result<&'static str, &'static str> {
     let target_offset = unsafe { locate_patch_target()? };
     let text = unsafe { getRegionAddress(Region::Text) as *const u8 };
-    let original = unsafe { (text.add(target_offset) as *const u32).read() };
+    let original = unsafe { (text.add(target_offset) as *const u32).read_volatile() };
 
     if original == MOV_W10_TRUE {
         return Ok("certificate bypass was already applied");
@@ -81,7 +81,7 @@ fn apply_certificate_patch() -> Result<&'static str, &'static str> {
         .data(MOV_W10_TRUE)
         .map_err(|_| "Skyline could not write the certificate instruction")?;
 
-    let patched = unsafe { (text.add(target_offset) as *const u32).read() };
+    let patched = unsafe { (text.add(target_offset) as *const u32).read_volatile() };
     if patched != MOV_W10_TRUE {
         return Err("certificate instruction failed post-write verification");
     }
