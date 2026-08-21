@@ -6,11 +6,13 @@ on:
     paths:
       - ".github/workflows/build-s3-runtime.yml"
       - "plugins/s3certbypass/**"
+      - "romfs/sd/atmosphere/contents/0100C2500FC20000/**"
       - "skyline/splatoon3-loader.patch"
   pull_request:
     paths:
       - ".github/workflows/build-s3-runtime.yml"
       - "plugins/s3certbypass/**"
+      - "romfs/sd/atmosphere/contents/0100C2500FC20000/**"
       - "skyline/splatoon3-loader.patch"
 
 permissions:
@@ -79,4 +81,44 @@ jobs:
           path: |
             artifacts/libs3certbypass.nro
             artifacts/Cargo.lock
+          if-no-files-found: error
+
+  package:
+    needs: [loader, plugin]
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: s3-skyline-loader
+          path: built/loader
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: s3-certificate-plugin
+          path: built/plugin
+
+      - name: Verify packaged runtime binaries
+        run: |
+          cmp built/loader/subsdk9 romfs/sd/atmosphere/contents/0100C2500FC20000/exefs/subsdk9
+          cmp built/plugin/libs3certbypass.nro romfs/sd/atmosphere/contents/0100C2500FC20000/romfs/skyline/plugins/libs3certbypass.nro
+          cmp built/plugin/Cargo.lock plugins/s3certbypass/Cargo.lock
+
+      - name: Install Prelude dependencies
+        run: |
+          dkp-pacman -Syu --noconfirm \
+            switch-freetype \
+            switch-sdl2 \
+            switch-sdl2_mixer \
+            switch-mpg123
+
+      - name: Build Prelude package
+        run: make -j$(nproc)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nextendo-s3-runtime
+          path: nextendo.nro
           if-no-files-found: error
