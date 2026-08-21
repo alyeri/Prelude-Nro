@@ -1,0 +1,77 @@
+name: Build Splatoon 3 runtime certificate patch
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/build-s3-runtime.yml"
+      - "plugins/s3certbypass/**"
+      - "skyline/splatoon3-loader.patch"
+  pull_request:
+    paths:
+      - ".github/workflows/build-s3-runtime.yml"
+      - "plugins/s3certbypass/**"
+      - "skyline/splatoon3-loader.patch"
+
+permissions:
+  contents: read
+
+env:
+  SKYLINE_COMMIT: 2eb226fa9e4ab023dc00cb0db10ad4ec50ac4fa3
+  CARGO_SKYLINE_COMMIT: 7d45fed93c8a4434bd3d03518fb9f4efcbf88e62
+
+jobs:
+  loader:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out pinned Skyline
+        run: |
+          git clone --recurse-submodules https://github.com/skyline-dev/skyline.git skyline-src
+          git -C skyline-src checkout "$SKYLINE_COMMIT"
+          git -C skyline-src submodule update --init --recursive
+
+      - name: Apply Splatoon 3 compatibility changes
+        run: git -C skyline-src apply "$GITHUB_WORKSPACE/skyline/splatoon3-loader.patch"
+
+      - name: Build custom subsdk9
+        run: make -C skyline-src
+
+      - name: Stage loader
+        run: |
+          mkdir -p artifacts
+          cp skyline-src/skyline600.nso artifacts/subsdk9
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: s3-skyline-loader
+          path: artifacts/subsdk9
+          if-no-files-found: error
+
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned cargo-skyline
+        run: cargo install cargo-skyline --git https://github.com/jam1garner/cargo-skyline.git --rev "$CARGO_SKYLINE_COMMIT" --locked
+
+      - name: Build certificate plugin
+        working-directory: plugins/s3certbypass
+        run: cargo skyline build --release
+
+      - name: Stage plugin
+        run: |
+          mkdir -p artifacts
+          cp plugins/s3certbypass/target/aarch64-skyline-switch/release/libs3certbypass.nro artifacts/
+          cp plugins/s3certbypass/Cargo.lock artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: s3-certificate-plugin
+          path: |
+            artifacts/libs3certbypass.nro
+            artifacts/Cargo.lock
+          if-no-files-found: error

@@ -18,8 +18,8 @@ reboots. Nothing is permanent — you can switch back whenever you want.
 
 ## How it works
 
-Prelude does not patch games and does not touch the network stack. It writes configuration that
-Atmosphère already understands, then reboots so the changes take effect:
+Prelude writes configuration that Atmosphère understands and includes narrowly scoped game patches
+where a title bypasses the system SSL service. It does not replace or intercept the network stack:
 
 | What | Where |
 | --- | --- |
@@ -27,9 +27,18 @@ Atmosphère already understands, then reboots so the changes take effect:
 | DNS.mitm on/off | `/atmosphere/config/system_settings.ini` |
 | PRODINFO per mode | `/exosphere.ini` (emuMMC only) |
 | Certificate trust | `exefs_patches/`, `nro_patches/`, browser CA bundle |
+| Splatoon 3 certificate result | Title-specific Skyline loader and fail-closed runtime plugin |
 
 Because it only writes files Atmosphère reads at boot, everything it does is reversible by
 switching modes — or by deleting those files by hand.
+
+### Splatoon 3 diagnostics
+
+The Splatoon 3 runtime patch writes its loader and plugin status to
+`/atmosphere/contents/0100C2500FC20000/s3certbypass.log`. If this file is absent after launching
+the game, the Skyline loader did not initialize. A present log distinguishes a successful patch,
+an already-patched instruction, a missing signature, and an ambiguous signature. The package does
+not include clock/overclock plugins.
 
 ## Building
 

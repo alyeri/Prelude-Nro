@@ -1,0 +1,148 @@
+diff --git a/include/skyline/logger/SdLogger.hpp b/include/skyline/logger/SdLogger.hpp
+index faf5a6d..cbea18d 100644
+--- a/include/skyline/logger/SdLogger.hpp
++++ b/include/skyline/logger/SdLogger.hpp
+@@ -3,10 +3,16 @@
+ 
+ #include <string>
+ 
++#include "nn/fs.h"
+ #include "skyline/logger/Logger.hpp"
+ 
+ namespace skyline::logger {
+ class SdLogger : public Logger {
++    std::string m_path;
++    nn::fs::FileHandle m_fileHandle{};
++    s64 m_offset{0};
++    bool m_ready{false};
++
+    public:
+     SdLogger(std::string);
+ 
+@@ -15,4 +21,4 @@ class SdLogger : public Logger {
+     virtual void SendRaw(void*, size_t);
+     virtual std::string FriendlyName() { return "SdLogger"; }
+ };
+-};  // namespace skyline::logger
+\ No newline at end of file
++};  // namespace skyline::logger
+diff --git a/source/main.cpp b/source/main.cpp
+index c005c03..b3a31cd 100644
+--- a/source/main.cpp
++++ b/source/main.cpp
+@@ -1,6 +1,6 @@
+ #include "main.hpp"
+ 
+-#include "skyline/logger/DualLogger.hpp"
++#include "skyline/logger/SdLogger.hpp"
+ #include "skyline/utils/ipc.hpp"
+ #include "skyline/utils/cpputils.hpp"
+ #include "skyline/utils/utils.h"
+@@ -95,22 +95,15 @@ void skyline_main() {
+     // init hooking setup
+     A64HookInit();
+ 
+-    // Initialize sockets directly before hooks are installed, so the call
+-    // reaches the nn::socket::Initialize before it is stubbed
+-    skyline::logger::skyline_socket_init();
+-
+-    // Prevent the game from re-initializing or finalizing sockets
+-    skyline::logger::setup_socket_hooks();
+-
+-    // initialize logger
++    // Initialize a persistent SD logger without taking ownership of the game's
++    // socket subsystem. This loader is used by an online game, so Skyline must
++    // not initialize, stub, or finalize nn::socket on the game's behalf.
+     nn::fs::MountSdCardForDebug("sd");
+-    skyline::logger::s_Instance = new skyline::logger::DualLogger();
++    skyline::logger::s_Instance = new skyline::logger::SdLogger(
++        "sd:/atmosphere/contents/0100C2500FC20000/s3certbypass.log");
+     skyline::logger::s_Instance->StartThread();
+     skyline::logger::s_Instance->Log("[skyline_main] Beginning initialization.\n");
+ 
+-    // Start TCP accept on background thread (blocks until a client connects)
+-    skyline::logger::start_listen_thread();
+-
+     // override exception handler to dump info
+     nn::os::SetUserExceptionHandler(exception_handler, exception_handler_stack, sizeof(exception_handler_stack),
+                                     &exception_info);
+diff --git a/source/skyline/logger/SdLogger.cpp b/source/skyline/logger/SdLogger.cpp
+index 586994b..82800d0 100644
+--- a/source/skyline/logger/SdLogger.cpp
++++ b/source/skyline/logger/SdLogger.cpp
+@@ -1,39 +1,54 @@
+ #include "skyline/logger/SdLogger.hpp"
+ 
+-#include "nn/fs.h"
++#include <utility>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#include "skyline/nx/kernel/svc.h"
++
++#ifdef __cplusplus
++}
++#endif
+ 
+ namespace skyline::logger {
+-nn::fs::FileHandle fileHandle;
+-s64 offset;
++SdLogger::SdLogger(std::string path) : m_path(std::move(path)) {}
+ 
+-SdLogger::SdLogger(std::string path) {
++void SdLogger::Initialize() {
+     nn::fs::DirectoryEntryType type;
+-    Result rc = nn::fs::GetEntryType(&type, path.c_str());
++    Result rc = nn::fs::GetEntryType(&type, m_path.c_str());
+ 
+     if (rc == 0x202) {  // Path does not exist
+-        rc = nn::fs::CreateFile(path.c_str(), 0);
+-    } else if (R_FAILED(rc))
++        rc = nn::fs::CreateFile(m_path.c_str(), 0);
++        if (R_FAILED(rc)) return;
++    } else if (R_FAILED(rc)) {
+         return;
++    } else if (type == nn::fs::DirectoryEntryType_Directory) {
++        return;
++    }
+ 
+-    if (type == nn::fs::DirectoryEntryType_Directory) return;
+-
+-    R_ERRORONFAIL(nn::fs::OpenFile(&fileHandle, path.c_str(), nn::fs::OpenMode_ReadWrite | nn::fs::OpenMode_Append));
+-}
+-
+-void SdLogger::Initialize() {
+-    // nothing to do
++    rc = nn::fs::OpenFile(&m_fileHandle, m_path.c_str(),
++                          nn::fs::OpenMode_ReadWrite | nn::fs::OpenMode_Append);
++    if (R_FAILED(rc)) return;
++    if (R_FAILED(nn::fs::GetFileSize(&m_offset, m_fileHandle))) return;
++    m_ready = true;
+ }
+ 
+ bool SdLogger::ShouldFlush() {
+-    return false;
++    return true;
+ }
+ 
+ void SdLogger::SendRaw(void* data, size_t size) {
+-    nn::fs::SetFileSize(fileHandle, offset + size);
++    svcOutputDebugString(static_cast<const char*>(data), size);
++    if (!m_ready) return;
++
++    if (R_FAILED(nn::fs::SetFileSize(m_fileHandle, m_offset + size))) return;
+ 
+-    nn::fs::WriteFile(fileHandle, offset, data, size,
+-                      nn::fs::WriteOption::CreateOption(nn::fs::WriteOptionFlag_Flush));
++    Result rc = nn::fs::WriteFile(
++        m_fileHandle, m_offset, data, size,
++        nn::fs::WriteOption::CreateOption(nn::fs::WriteOptionFlag_Flush));
+ 
+-    offset += size;
++    if (R_SUCCEEDED(rc)) m_offset += size;
+ };
+-};  // namespace skyline::logger
+\ No newline at end of file
++};  // namespace skyline::logger

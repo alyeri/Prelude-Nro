@@ -6,3 +6,6 @@
 *.map
 nextendo.nro
 /backups/
+/.deps/
+__pycache__/
+*.pyc

@@ -259,7 +259,7 @@
 //           Le contournement doit donc atterrir dans le NSO du jeu. On embarque les
 //           deux patches IPS32 de Kazu dans exefs_patches (deja deployes par
 //           copyTreeRomfs, et retires au retour en mode Nintendo comme le reste) :
-//             s3certbypass  19 o, 1 record  -> MOV W10,#0 a 0x157B20 (check cert)
+//             s3certbypass  19 o, 1 record  -> MOV W10,#1 a 0x157B20 (check cert)
 //             s3peername    29 o, 2 records -> NOP a 0x14E1B0 + MOV W20,WZR a 0x14DD80
 //           Build ids : 6830B3A1... = 11.2.0, 726D2B88... = 11.0.0. Le certbypass est
 //           BYTE-IDENTIQUE pour les deux (le code n'a pas bouge entre les versions,
@@ -378,14 +378,22 @@
 //           L'updater ecrit desormais dans prelude_trace.txt ce qu'il a fait (60 a 64) :
 //           il n'avait AUCUNE trace, et ce diagnostic-ci a du etre deduit au lieu d'etre
 //           lu. La prochaine fois, le fichier de l'utilisateur repondra tout seul.
-#define NEXTENDO_BUILD 57
+// build 58 : v3.3.6. Le bypass certificat de Splatoon 3 n'est plus un IPS lie au
+//           build-id. Un plugin Skyline cherche une signature AArch64 unique dans
+//           main.text, valide que la cible est bien LDRB W10, ecrit MOV W10,#1 et
+//           relit l'instruction. Toute ambiguite echoue fermee et est journalisee dans
+//           atmosphere/contents/0100C2500FC20000/s3certbypass.log. Le loader Skyline
+//           est specifique a Splatoon 3 : il journalise sur SD sans initialiser ni
+//           hooker nn::socket. Les deux anciens IPS cert sont purges ; s3peername et
+//           GetRelaySignatureKey restent inchanges. Aucun overclocker n'est embarque.
+#define NEXTENDO_BUILD 58
 
 // Version SEMVER de CE build. Doit rester alignee avec APP_VERSION (Makefile).
 // Le compare a l'updater se fait en semver complet (maj.min.patch), pas avec
 // NEXTENDO_BUILD : les tags GitHub sont des semver (v3.2.5), pas des compteurs.
 #define NEXTENDO_VERSION_MAJOR 3
 #define NEXTENDO_VERSION_MINOR 3
-#define NEXTENDO_VERSION_PATCH 5
+#define NEXTENDO_VERSION_PATCH 6
 
 typedef struct {
     bool available;   // une version semver > NEXTENDO_VERSION_* est dispo
